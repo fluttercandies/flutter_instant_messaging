@@ -56,7 +56,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
- List<ChatItem> chats = <ChatItem>[];
+  List<ChatItem> chats = <ChatItem>[];
   List<ChatItem> newChats = <ChatItem>[];
   GlobalKey key = GlobalKey();
   ScrollController _scrollController;
@@ -65,12 +65,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   int maxLastIndex = 0;
   bool isJumping = false;
+  String currentMsg;
   @override
   void initState() {
     for (int i = 0; i < 5; i++) {
       chats.add(ChatItem('today'));
     }
     _scrollController = ScrollController();
+    // WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+    //   _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    // });
     super.initState();
   }
 
@@ -102,6 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         _scrollController.position.maxScrollExtent != 0;
 
                 chats.add(ChatItem('new'));
+                currentMsg = chats.last.value;
                 //if reach bottom, scroll to bottom.
                 if (reachBottom) {
                   isJumping = true;
@@ -123,69 +128,94 @@ class _MyHomePageState extends State<MyHomePage> {
           )
         ],
       ),
-      body: PullToRefreshNotification(
-        onRefresh: onRefresh,
-        maxDragOffset: 48,
-        armedDragUpCancel: false,
-        child: Column(
-          children: <Widget>[
-            Expanded(
-                child: CustomScrollView(
-              /// in case list is not full screen and remove ios Bouncing
-              physics: const AlwaysScrollableClampingScrollPhysics(),
-              controller: _scrollController,
-              center: key,
-              slivers: <Widget>[
-                PullToRefreshContainer(
-                  (PullToRefreshScrollNotificationInfo info) {
-                    final double offset = info?.dragOffset ?? 0.0;
-                    //loading history data
-                    return SliverToBoxAdapter(
-                      child: Container(
-                        height: offset,
-                        alignment: Alignment.center,
-                        child: const CupertinoActivityIndicator(
-                            activeColor: Colors.blue),
+      body: Stack(
+        children: [
+          PullToRefreshNotification(
+            onRefresh: onRefresh,
+            maxDragOffset: 48,
+            armedDragUpCancel: false,
+            child: Column(
+              children: <Widget>[
+                Expanded(
+                    child: CustomScrollView(
+                  /// in case list is not full screen and remove ios Bouncing
+                  physics: const AlwaysScrollableClampingScrollPhysics(),
+                  controller: _scrollController,
+                  center: key,
+                  slivers: <Widget>[
+                    PullToRefreshContainer(
+                      (PullToRefreshScrollNotificationInfo info) {
+                        final double offset = info?.dragOffset ?? 0.0;
+                        //loading history data
+                        return SliverToBoxAdapter(
+                          child: Container(
+                            height: offset,
+                            alignment: Alignment.center,
+                            child: const CupertinoActivityIndicator(
+                                activeColor: Colors.blue),
+                          ),
+                        );
+                      },
+                    ),
+                    ExtendedSliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (BuildContext context, int index) {
+                          final ChatItem item = newChats[index];
+                          return buildItem(item);
+                        },
+                        childCount: newChats.length,
                       ),
-                    );
-                  },
-                ),
-                ExtendedSliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) {
-                      final ChatItem item = newChats[index];
-                      return buildItem(item);
-                    },
-                    childCount: newChats.length,
-                  ),
-                  extendedListDelegate: const ExtendedListDelegate(
-                    closeToTrailing: false,
-                  ),
-                ),
-                ExtendedSliverList(
-                  key: key,
-                  delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) {
-                      final ChatItem item = chats[index];
-                      return buildItem(item);
-                    },
-                    childCount: chats.length,
-                  ),
-                  extendedListDelegate: ExtendedListDelegate(
-                      //closeToTrailing: true,
-                      viewportBuilder: (int firstIndex, int lastIndex) {
-                    maxLastIndex = max(maxLastIndex, lastIndex);
-                    if (!isJumping &&
-                        newMeassageCount != chats.length - 1 - maxLastIndex) {
-                      newMeassageCount = chats.length - 1 - maxLastIndex;
-                      streamController.sink.add(newMeassageCount);
-                    }
-                  }),
-                ),
+                      extendedListDelegate: const ExtendedListDelegate(
+                        closeToTrailing: false,
+                      ),
+                    ),
+                    ExtendedSliverList(
+                      key: key,
+                      delegate: SliverChildBuilderDelegate(
+                        (BuildContext context, int index) {
+                          final ChatItem item = chats[index];
+                          return buildItem(item);
+                        },
+                        childCount: chats.length,
+                      ),
+                      extendedListDelegate: ExtendedListDelegate(
+                          //closeToTrailing: true,
+                          viewportBuilder: (int firstIndex, int lastIndex) {
+                        maxLastIndex = max(maxLastIndex, lastIndex);
+                        if (!isJumping &&
+                            newMeassageCount !=
+                                chats.length - 1 - maxLastIndex) {
+                          newMeassageCount = chats.length - 1 - maxLastIndex;
+                          streamController.sink.add(newMeassageCount);
+                        }
+                      }),
+                    ),
+                  ],
+                ))
               ],
-            ))
-          ],
-        ),
+            ),
+          ),
+          StreamBuilder<int>(
+            builder: (BuildContext context, AsyncSnapshot<int> data) {
+              if (data.data == null || data.data <= 0 || currentMsg == null) {
+                return Container();
+              }
+              return Positioned(
+                child: Container(
+                  height: 50,
+                  color: Colors.grey.withOpacity(0.4),
+                  alignment: Alignment.center,
+                  child: Text(currentMsg),
+                ),
+                top: 0,
+                left: 0,
+                right: 0,
+              );
+            },
+            initialData: newMeassageCount,
+            stream: streamController.stream,
+          ),
+        ],
       ),
       floatingActionButton: StreamBuilder<int>(
         builder: (BuildContext context, AsyncSnapshot<int> data) {

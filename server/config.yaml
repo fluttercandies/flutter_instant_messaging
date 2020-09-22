@@ -1,0 +1,8 @@
+port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  databaseName: "instant_messaging"
+  username: "postgres"
+  password: "123456"
